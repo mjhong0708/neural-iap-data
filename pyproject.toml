@@ -1,0 +1,45 @@
+[project]
+name = "neural_iap_data"
+description = "Data structures for training neural network potentials"
+readme = "README.md"
+
+requires-python = ">=3.8,<3.11"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "numpy>=1.21.2",
+    "ase>3.21.1",
+    "torch>=1.13.0",
+    "pyg-lib",
+    "torch-geometric>=2.2",
+    "torch-scatter",
+    "torch-sparse",
+    "torch-cluster",
+    "torch-spline-conv",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["ruff", "black", "isort", "jupyter", "pytest"]
+full = ["matscipy"]
+
+[tool.setuptools.packages.find]
+include = ["neural_iap_data"]
+exclude = ["dev"]
+
+[tool.setuptools.dynamic]
+version = {attr = "neural_iap_data.__version__"}
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+
+select = ["E", "F", "B"]
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
