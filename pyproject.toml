@@ -18,12 +18,12 @@ dependencies = [
     "torch-sparse",
     "torch-cluster",
     "torch-spline-conv",
+    "matscipy",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 dev = ["ruff", "black", "isort", "jupyter", "pytest"]
-full = ["matscipy"]
 
 [tool.setuptools.packages.find]
 include = ["neural_iap_data"]
