@@ -48,6 +48,8 @@ class MD17Dataset(AtomsDataset):
         pre_transform: Optional[Callable] = None,
         pre_filter: Optional[Callable] = None,
         log: bool = True,
+        *,
+        neighborlist_backend: str = "ase",
     ):
         self.suffix = suffix
         self.root = root
@@ -79,6 +81,7 @@ class MD17Dataset(AtomsDataset):
             pre_transform,
             pre_filter,
             log,
+            neighborlist_backend=neighborlist_backend,
         )
         if unit != self.unit:
             print("Unit is not consistent with the original dataset. Please check the unit.")
@@ -163,6 +166,8 @@ class RevisedMD17Dataset(MD17Dataset):
         pre_transform: Optional[Callable] = None,
         pre_filter: Optional[Callable] = None,
         log: bool = True,
+        *,
+        neighborlist_backend: str = "ase",
     ):
         self.name = name + "_" + split + "_" + suffix
         self.suffix = suffix
@@ -199,6 +204,7 @@ class RevisedMD17Dataset(MD17Dataset):
             pre_transform,
             pre_filter,
             log,
+            neighborlist_backend=neighborlist_backend,
         )
         if unit != self.unit:
             print("Unit is not consistent with the original dataset. Please check the unit.")
