@@ -16,7 +16,7 @@ _default_dtype = torch.get_default_dtype()
 
 
 class AtomsGraph(Data):
-    """Graph representation of an atomic system.
+    """Basic graph representation of an atomic system.
 
     Args:
         elems (Tensor): 1D tensor of atomic numbers.
@@ -28,6 +28,12 @@ class AtomsGraph(Data):
             This is because message passing occurs from neighbors to centers.
         edge_shift (OptTensor, optional): Optional shift vectors when creating neighbor list.
             Defaults to None.
+        energy (OptTensor, optional): Energy of the system. Defaults to None.
+        force (OptTensor, optional): Force on each atom. Defaults to None.
+        node_features (OptTensor, optional): Node features. Defaults to None.
+        edge_features (OptTensor, optional): Edge features. Defaults to None.
+        global_features (OptTensor, optional): Global features. Defaults to None.
+        add_batch (bool, optional): If True, add batch index to the graph. Defaults to False.
     """
 
     def __init__(
@@ -73,6 +79,25 @@ class AtomsGraph(Data):
         neighborlist_backend: Union[str, NeighborListBuilder] = "ase",
         **kwargs,
     ):
+        """Create AtomsGraph from ASE Atoms object.
+
+        Args:
+            atoms (Atoms): An ASE Atoms object.
+            build_neighbors (bool, optional): Whether to build neighborlist or not. Defaults to False.
+            cutoff (float, optional): Cutoff radius for neighbor list in Angstrom. Defaults to 5.0.
+            self_interaction (bool, optional): Whether to add atom as neighbor of itself(=self loop). Defaults to False.
+            energy (float, optional): Potential energy of the system. When set to None, energy will retrieved from
+                    atoms.calc if available. Defaults to None.
+            force (Tensor, optional): Interatomic forces of the system. When set to None, forces will retrieved from
+                    atoms.calc if available. Defaults to None.
+            add_batch (bool, optional): Whether to add batch index as attribute or not. Defaults to True.
+            neighborlist_backend (Union[str, NeighborListBuilder], optional): The backend for building neighborlist.
+                    Accepts `str` or `NeighborListBuilder` class. See `neural_iap_data.neighborlist.py`.
+                    Defaults to "ase".
+
+        Returns:
+            _type_: _description_
+        """
 
         elems = torch.tensor(atoms.numbers, dtype=torch.long)
         pos = torch.tensor(atoms.positions, dtype=_default_dtype)
