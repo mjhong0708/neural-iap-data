@@ -104,15 +104,6 @@ class AtomsGraph(Data):
         pos = torch.tensor(atoms.positions, dtype=_default_dtype)
         cell = cls.resolve_cell(atoms)
 
-        if build_neighbors:
-            neighborlist_builder_cls = resolve_neighborlist_builder(neighborlist_backend)
-            neighborlist_builder: NeighborListBuilder = neighborlist_builder_cls(cutoff, self_interaction)
-            center_idx, neigh_idx, edge_shift = neighborlist_builder.build(atoms)
-            # edge index: [dst, src]
-            edge_index = torch.stack([neigh_idx, center_idx], dim=0)
-        else:
-            edge_index = None
-            edge_shift = None
         if energy is None:
             try:
                 energy = atoms.get_potential_energy()
@@ -125,7 +116,17 @@ class AtomsGraph(Data):
                 force = torch.as_tensor(force, dtype=_default_dtype)
             except RuntimeError:
                 pass
-        return cls(elems, pos, cell, edge_index, edge_shift, energy, force, add_batch=add_batch, **kwargs)
+
+        atoms_graph = cls(elems, pos, cell, None, None, energy, force, add_batch=add_batch, **kwargs)
+        if build_neighbors:
+            neighborlist_builder_cls = resolve_neighborlist_builder(neighborlist_backend)
+            neighborlist_builder: NeighborListBuilder = neighborlist_builder_cls(cutoff, self_interaction)
+            center_idx, neigh_idx, edge_shift = neighborlist_builder.build(atoms_graph)
+            # edge index: [dst, src]
+            edge_index = torch.stack([neigh_idx, center_idx], dim=0)
+            atoms_graph.edge_index = edge_index
+            atoms_graph.edge_shift = edge_shift
+        return atoms_graph
 
     def to_ase(self) -> Atoms:
         """Convert to Atoms object."""
@@ -148,6 +149,18 @@ class AtomsGraph(Data):
     def n_atoms(self) -> int:
         """Return number of atoms."""
         return utils.n_atoms_per_graph(self).squeeze()
+
+    def compute_edge_vecs(self):
+        if "edge_index" not in self:
+            raise ValueError("Neighbor list is not built.")
+        pos = self.pos
+        batch = self.batch
+        dst, src = self.edge_index
+        edge_batch = batch[src]  # batch index for edges(neighbors)
+        vec = pos[dst] - pos[src]
+        cell = self.cell if "cell" in self else torch.zeros((batch.max() + 1, 3, 3)).to(vec.device)
+        vec += torch.einsum("ni,nij->nj", self.edge_shift, cell[edge_batch])
+        return vec
 
     @staticmethod
     def resolve_cell(atoms: Atoms) -> Tensor:
