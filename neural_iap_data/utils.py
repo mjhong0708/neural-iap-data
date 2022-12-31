@@ -2,9 +2,8 @@ from typing import Optional, Union
 
 import torch
 from torch.utils.data import Dataset
+from torch_geometric.data import Data
 from torch_scatter import scatter_add
-
-from neural_iap_data.data.atomsgraph import AtomsGraph
 
 Tensor = torch.Tensor
 
@@ -14,10 +13,10 @@ def remove_extension(filename: str) -> str:
     return ".".join(filename.split(".")[:-1])
 
 
-def n_atoms_per_graph(data: AtomsGraph) -> Tensor:
+def n_atoms_per_graph(data: Data) -> Tensor:
     """Return the number of atoms per graph."""
     num_nodes = data.pos.size(0)
-    return scatter_add(torch.ones(num_nodes), data.batch, dim=0)
+    return scatter_add(torch.ones(num_nodes, dtype=torch.long), data.batch, dim=0)
 
 
 def train_val_test_split(

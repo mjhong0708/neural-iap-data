@@ -1,8 +1,7 @@
-from neural_iap_data import AtomsGraph
 import torch
-
-
 from commons import get_test_molecule
+
+from neural_iap_data import AtomsGraph
 
 
 def test_atoms_graph_free():

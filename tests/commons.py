@@ -1,6 +1,6 @@
 import ase.build
-from ase.calculators.singlepoint import SinglePointCalculator
 import numpy as np
+from ase.calculators.singlepoint import SinglePointCalculator
 
 
 def get_test_molecule():

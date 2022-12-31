@@ -3,10 +3,10 @@ from typing import NamedTuple, Union
 
 import ase.neighborlist
 import matscipy.neighbours
+import numpy as np
 import torch
 from ase import Atoms
 from torch import Tensor
-import numpy as np
 
 
 class NeighborList(NamedTuple):

@@ -9,6 +9,7 @@ from ase import Atoms
 from torch_geometric.data import Data
 from torch_geometric.typing import OptTensor, Tensor
 
+from neural_iap_data import utils
 from neural_iap_data.neighborlist import NeighborListBuilder, resolve_neighborlist_builder
 
 IndexType = Union[slice, Tensor, np.ndarray, Sequence]
@@ -139,6 +140,14 @@ class AtomsGraph(Data):
             pbc=pbc,
         )
         return atoms
+
+    def volume(self) -> Tensor:
+        """Return volume of the cell."""
+        return self.cell.squeeze().det()
+
+    def n_atoms(self) -> int:
+        """Return number of atoms."""
+        return utils.n_atoms_per_graph(self).squeeze()
 
     @staticmethod
     def resolve_cell(atoms: Atoms) -> Tensor:

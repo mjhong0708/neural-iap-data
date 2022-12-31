@@ -1,9 +1,8 @@
+import pytest
 import torch
+from commons import get_test_bulk, get_test_molecule
 
 from neural_iap_data.neighborlist import ASENeighborListBuilder, MatscipyNeighborListBuilder
-
-from commons import get_test_bulk, get_test_molecule
-import pytest
 
 
 @pytest.mark.parametrize(
