@@ -12,12 +12,7 @@ dependencies = [
     "numpy>=1.21.2",
     "ase>3.21.1",
     "torch>=1.13.0",
-    "pyg-lib",
     "torch-geometric>=2.2",
-    "torch-scatter",
-    "torch-sparse",
-    "torch-cluster",
-    "torch-spline-conv",
     "matscipy",
 ]
 dynamic = ["version"]
