@@ -17,8 +17,8 @@ from torch_geometric.data.makedirs import makedirs
 from torch_geometric.typing import Tensor
 from tqdm import tqdm
 
-from .atomsdata import AtomsGraph
-from ..utils import remove_extension
+from neural_iap_data.data.atomsgraph import AtomsGraph
+from neural_iap_data.utils import remove_extension
 
 IndexType = Union[slice, Tensor, np.ndarray, Sequence]
 
@@ -131,5 +131,3 @@ class AtomsDataset(InMemoryDataset):
         atoms_list = ase.io.read(filename, index=index)
         name = remove_extension(osp.basename(filename)) if name is None else name
         return cls(name=name, atoms_list=atoms_list, root=root, cutoff=cutoff, **kwargs)
-
-
