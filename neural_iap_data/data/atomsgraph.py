@@ -9,7 +9,6 @@ from ase import Atoms
 from torch_geometric.data import Data
 from torch_geometric.typing import OptTensor, Tensor
 
-from neural_iap_data import utils
 from neural_iap_data.neighborlist import NeighborListBuilder, resolve_neighborlist_builder
 
 IndexType = Union[slice, Tensor, np.ndarray, Sequence]
@@ -49,6 +48,10 @@ class AtomsGraph(Data):
         node_features: OptTensor = None,
         edge_features: OptTensor = None,
         global_features: OptTensor = None,
+        node_vec_features: OptTensor = None,
+        edge_vec_features: OptTensor = None,
+        global_vec_features: OptTensor = None,
+        n_atoms: int = None,
         add_batch: bool = False,
         **kwargs,
     ):
@@ -63,6 +66,12 @@ class AtomsGraph(Data):
         self.node_features = node_features
         self.edge_features = edge_features
         self.global_features = global_features
+        self.node_vec_features = node_vec_features
+        self.edge_vec_features = edge_vec_features
+        self.global_vec_features = global_vec_features
+        self.n_atoms = n_atoms
+        if pos is not None and n_atoms is not None:
+            assert pos.shape[0] == elems.shape[0], "Number of atoms and number of positions must be same."
         if add_batch:
             self.batch = torch.zeros_like(elems, dtype=torch.long, device=pos.device)
 
@@ -103,6 +112,7 @@ class AtomsGraph(Data):
         elems = torch.tensor(atoms.numbers, dtype=torch.long)
         pos = torch.tensor(atoms.positions, dtype=_default_dtype)
         cell = cls.resolve_cell(atoms)
+        n_atoms = len(atoms)
 
         if energy is None:
             try:
@@ -117,7 +127,7 @@ class AtomsGraph(Data):
             except RuntimeError:
                 pass
 
-        atoms_graph = cls(elems, pos, cell, None, None, energy, force, add_batch=add_batch, **kwargs)
+        atoms_graph = cls(elems, pos, cell, None, None, energy, force, n_atoms=n_atoms, add_batch=add_batch, **kwargs)
         if build_neighbors:
             neighborlist_builder_cls = resolve_neighborlist_builder(neighborlist_backend)
             neighborlist_builder: NeighborListBuilder = neighborlist_builder_cls(cutoff, self_interaction)
@@ -145,10 +155,6 @@ class AtomsGraph(Data):
     def volume(self) -> Tensor:
         """Return volume of the cell."""
         return self.cell.squeeze().det()
-
-    def n_atoms(self) -> int:
-        """Return number of atoms."""
-        return utils.n_atoms_per_graph(self).squeeze()
 
     def compute_edge_vecs(self):
         if "edge_index" not in self:
