@@ -1,6 +1,9 @@
+import os
 import os.path as osp
+from pathlib import Path
 from typing import Callable, Literal, Optional
 
+import ase.io
 import numpy as np
 from ase import Atoms, units
 from ase.calculators.singlepoint import SinglePointCalculator
@@ -14,14 +17,14 @@ kcal_mol_to_ev = units.kcal / units.mol
 
 class MD17Dataset(AtomsDataset):
     urls = {
-        "benzene": "http://www.quantum-machine.org/gdml/data/npz/benzene2017_dft.npz",
-        "uracil": "http://www.quantum-machine.org/gdml/data/npz/uracil_dft.npz",
-        "naphthalene": "http://www.quantum-machine.org/gdml/data/npz/naphthalene_dft.npz",
-        "aspirin": "http://www.quantum-machine.org/gdml/data/npz/aspirin_dft.npz",
-        "salicylic_acid": "http://www.quantum-machine.org/gdml/data/npz/salicylic_dft.npz",
-        "malonaldehyde": "http://www.quantum-machine.org/gdml/data/npz/malonaldehyde_dft.npz",
-        "ethanol": "http://www.quantum-machine.org/gdml/data/npz/ethanol_dft.npz",
-        "toluene": "http://www.quantum-machine.org/gdml/data/npz/toluene_dft.npz",
+        "benzene": "http://www.quantum-machine.org/gdml/data/npz/md17_benzene2017.npz",
+        "uracil": "http://www.quantum-machine.org/gdml/data/npz/md17_uracil.npz",
+        "naphthalene": "http://www.quantum-machine.org/gdml/data/npz/md17_naphthalene.npz",
+        "aspirin": "http://www.quantum-machine.org/gdml/data/npz/md17_aspirin.npz",
+        "salicylic_acid": "http://www.quantum-machine.org/gdml/data/npz/md17_salicylic.npz",
+        "malonaldehyde": "http://www.quantum-machine.org/gdml/data/npz/md17_malonaldehyde.npz",
+        "ethanol": "http://www.quantum-machine.org/gdml/data/npz/md17_ethanol.npz",
+        "toluene": "http://www.quantum-machine.org/gdml/data/npz/md17_toluene.npz",
         "paracetamol": "http://www.quantum-machine.org/gdml/data/npz/paracetamol_dft.npz",
         "azobenzene": "http://www.quantum-machine.org/gdml/data/npz/azobenzene_dft.npz",
         "aspirin_ccsd": "http://www.quantum-machine.org/gdml/data/npz/aspirin_ccsd.zip",
@@ -38,9 +41,9 @@ class MD17Dataset(AtomsDataset):
     def __init__(
         self,
         name: str,
-        suffix: str = "",
+        suffix: str = "dataset",
         cutoff: float = 5.0,
-        unit: Literal["kcal/mol", "eV"] = "kcal/mol",
+        unit: Literal["kcal/mol", "eV"] = "eV",
         num_workers: int = 4,
         shift_energy: bool = True,
         root: Optional[str] = None,
@@ -59,21 +62,30 @@ class MD17Dataset(AtomsDataset):
             url = self.urls[name.replace("_train", "").replace("_test", "")]
         else:
             url = self.urls[name]
-        path = download_url(url, self.root)
+        download_path = download_url(url, self.root)
         if "ccsd_t" in name:
-            extract_zip(path, self.root)
+            extract_zip(download_path, self.root)
             if name.endswith("train") or name.endswith("test"):
                 filename = osp.join(self.root, name.replace("_train", "-train").replace("_test", "-test") + ".npz")
             else:
                 raise ValueError("You must specify train or test for ccsd_t datasets.")
-            atoms_list = self._parse_file(filename)
         else:
-            atoms_list = self._parse_file(path)
+            filename = download_path
+        if not osp.exists(self.processed_dir):
+            os.mkdir(self.processed_dir)
+        xyz_filepath = osp.join(self.root, "processed", Path(filename).stem + ".xyz")
+        if osp.exists(xyz_filepath):
+            data_source = xyz_filepath
+        else:
+            atoms_list = self._parse_file(filename)
+            ase.io.write(xyz_filepath, atoms_list, format="extxyz")
+            data_source = atoms_list
+
         self.name = name + "_" + suffix
         super().__init__(
+            data_source,
             self.name,
             cutoff,
-            atoms_list,
             num_workers,
             shift_energy,
             root,
@@ -155,8 +167,7 @@ class RevisedMD17Dataset(MD17Dataset):
     def __init__(
         self,
         name: str,
-        suffix: str = "",
-        split: str = "train_1",
+        suffix: str = "dataset",
         cutoff: float = 5.0,
         unit: Literal["kcal/mol", "eV"] = "kcal/mol",
         num_workers: int = 4,
@@ -169,9 +180,8 @@ class RevisedMD17Dataset(MD17Dataset):
         *,
         neighborlist_backend: str = "ase",
     ):
-        self.name = name + "_" + split + "_" + suffix
+        self.name = name + "_" + suffix
         self.suffix = suffix
-        self.split = split
         self.root = root
         self.unit = unit
         self.num_workers = num_workers
@@ -189,14 +199,19 @@ class RevisedMD17Dataset(MD17Dataset):
                 self.split_idx[f"{split}_{i}"] = np.loadtxt(splitfile).astype(np.int64).squeeze()
         if osp.isfile(osp.join(self.root, "processed", self.name + ".pt")):
             atoms_list = None
+        npz_dir = osp.join(self.root, "rmd17/npz_data")
+        xyz_filepath = osp.join(self.root, "processed", Path(selected_file).stem + ".xyz")
+        if osp.exists(xyz_filepath):
+            data_source = xyz_filepath
         else:
-            atoms_list = self._parse_file(osp.join(self.root, self.npz_dir, selected_file))
-            atoms_list = [atoms_list[i] for i in self.split_idx[self.split]]
+            atoms_list = self._parse_file(osp.join(npz_dir, selected_file))
+            ase.io.write(xyz_filepath, atoms_list, format="extxyz")
+            data_source = atoms_list
         AtomsDataset.__init__(
             self,
+            data_source,
             self.name,
             cutoff,
-            atoms_list,
             num_workers,
             shift_energy,
             root,
@@ -209,3 +224,7 @@ class RevisedMD17Dataset(MD17Dataset):
         if unit != self.unit:
             print("Unit is not consistent with the original dataset. Please check the unit.")
         self.unit = unit
+
+    def get_pre_split(self, split: str, idx: int) -> "RevisedMD17Dataset":
+        idx = self.split_idx[f"{split}_{idx}"]
+        return self[idx]

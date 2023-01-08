@@ -4,7 +4,7 @@ Data structure for constructing dataset for atomistic machine learning.
 import os.path as osp
 import sys
 import warnings
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 import ase.io
 import numpy as np
@@ -26,12 +26,12 @@ IndexType = Union[slice, Tensor, np.ndarray, Sequence]
 class AtomsDataset(InMemoryDataset):
     def __init__(
         self,
+        data_source: Union[str, Sequence[Atoms]],
         name: str,
         cutoff: float = 5.0,
-        atoms_list: list[Atoms] = None,
         num_workers: int = 4,
         shift_energy: bool = True,  # if true, shifted as energy - energy.max()
-        root: Optional[str] = None,
+        root: str = ".",
         transform: Optional[Callable] = None,
         pre_transform: Optional[Callable] = None,
         pre_filter: Optional[Callable] = None,
@@ -39,15 +39,15 @@ class AtomsDataset(InMemoryDataset):
         *,
         neighborlist_backend: str = "ase",
     ):
+        self.data_source = data_source
         self.name = name
         self.cutoff = cutoff
-        self.atoms_list = atoms_list
         self.num_workers = num_workers
         self.neighborlist_backend = neighborlist_backend
         super().__init__(root, transform, pre_transform, pre_filter, log)
         self.shift_energy = shift_energy
         self.data, self.slices = torch.load(self.processed_paths[0])
-        if self.shift_energy:
+        if self.shift_energy and "energy" in self.data.keys:
             energy_max = self.data.energy.max()
             self.data.energy -= energy_max
 
@@ -57,14 +57,23 @@ class AtomsDataset(InMemoryDataset):
 
     def process(self):
         # Read data into huge `Data` list.
+        if isinstance(self.data_source, str):
+            print("Reading data from", self.data_source, "...")
+            atoms_list = ase.io.read(self.data_source, index=":")
+        elif isinstance(self.data_source, Sequence) and isinstance(self.data_source[0], Atoms):
+            print("Using given list of ase.Atoms objects...")
+            atoms_list = self.data_source
+        else:
+            raise TypeError("data_source must be a string or a sequence of ase.Atoms")
+
         def to_graph(atoms, cutoff):
             return AtomsGraph.from_ase(atoms, True, cutoff, neighborlist_backend=self.neighborlist_backend)
 
         if self.num_workers == 1:
-            data_list = [to_graph(atoms, self.cutoff) for atoms in tqdm(self.atoms_list)]
+            data_list = [to_graph(atoms, self.cutoff) for atoms in tqdm(atoms_list)]
         else:
             data_list = Parallel(n_jobs=self.num_workers, verbose=10)(
-                delayed(to_graph)(atoms, self.cutoff) for atoms in self.atoms_list
+                delayed(to_graph)(atoms, self.cutoff) for atoms in atoms_list
             )
 
         if self.pre_filter is not None:
@@ -131,3 +140,43 @@ class AtomsDataset(InMemoryDataset):
         atoms_list = ase.io.read(filename, index=index)
         name = remove_extension(osp.basename(filename)) if name is None else name
         return cls(name=name, atoms_list=atoms_list, root=root, cutoff=cutoff, **kwargs)
+
+    def to_ase(self):
+        return [atoms.to_ase() for atoms in self]
+
+    def split(self, n: int, seed: int = 0, return_idx=False) -> Tuple["AtomsDataset", "AtomsDataset"]:
+        """Split the dataset into two subsets of `n` and `len(self) - n` elements."""
+        indices = torch.randperm(len(self), generator=torch.Generator().manual_seed(seed))
+        if return_idx:
+            return (self[indices[:n]], self[indices[n:]]), (indices[:n], indices[n:])
+        return self[indices[:n]], self[indices[n:]]
+
+    def subset(self, n: int, seed: int = 0, return_idx=False) -> "AtomsDataset":
+        """Create a subset of the dataset with `n` elements."""
+        indices = torch.randperm(len(self), generator=torch.Generator().manual_seed(seed))
+        if return_idx:
+            return self[indices[:n]], indices[:n]
+        return self[indices[:n]]
+
+    def train_val_test_split(
+        self, train_size, val_size, seed: int = 0, return_idx=False
+    ) -> Tuple["AtomsDataset", "AtomsDataset", "AtomsDataset"]:
+        num_data = len(self)
+
+        if isinstance(train_size, float):
+            train_size = int(train_size * num_data)
+
+        if isinstance(val_size, float):
+            val_size = int(val_size * num_data)
+
+        if train_size + val_size > num_data:
+            raise ValueError("train_size and val_size are too large.")
+
+        if return_idx:
+            (train_dataset, rest_dataset), (train_idx, _) = self.split(train_size, seed, return_idx)
+            (val_dataset, test_dataset), (val_idx, test_idx) = rest_dataset.split(val_size, seed, return_idx)
+            return (train_dataset, val_dataset, test_dataset), (train_idx, val_idx, test_idx)
+
+        train_dataset, rest_dataset = self.split(train_size, seed)
+        val_dataset, test_dataset = rest_dataset.split(val_size, seed)
+        return train_dataset, val_dataset, test_dataset

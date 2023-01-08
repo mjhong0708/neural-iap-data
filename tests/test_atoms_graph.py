@@ -31,7 +31,7 @@ def test_atoms_graph_n_atoms():
     g1 = AtomsGraph.from_ase(atoms_1)
     g2 = AtomsGraph.from_ase(atoms_2)
     batch = Batch.from_data_list([g1, g2])
-    n_atoms = batch.n_atoms()
+    n_atoms = batch.n_atoms
     assert n_atoms[0] == len(atoms_1)
     assert n_atoms[1] == len(atoms_2)
 
