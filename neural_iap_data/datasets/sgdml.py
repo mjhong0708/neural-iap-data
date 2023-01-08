@@ -199,6 +199,9 @@ class RevisedMD17Dataset(MD17Dataset):
                 self.split_idx[f"{split}_{i}"] = np.loadtxt(splitfile).astype(np.int64).squeeze()
         if osp.isfile(osp.join(self.root, "processed", self.name + ".pt")):
             atoms_list = None
+
+        if not osp.exists(self.processed_dir):
+            os.mkdir(self.processed_dir)
         npz_dir = osp.join(self.root, "rmd17/npz_data")
         xyz_filepath = osp.join(self.root, "processed", Path(selected_file).stem + ".xyz")
         if osp.exists(xyz_filepath):
