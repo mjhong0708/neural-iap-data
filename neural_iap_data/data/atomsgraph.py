@@ -112,7 +112,7 @@ class AtomsGraph(Data):
         elems = torch.tensor(atoms.numbers, dtype=torch.long)
         pos = torch.tensor(atoms.positions, dtype=_default_dtype)
         cell = cls.resolve_cell(atoms)
-        n_atoms = len(atoms)
+        n_atoms = torch.tensor(len(atoms), dtype=torch.long)
 
         if energy is None:
             try:
