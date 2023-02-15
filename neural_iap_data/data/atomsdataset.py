@@ -4,7 +4,7 @@ Data structure for constructing dataset for atomistic machine learning.
 import os.path as osp
 import sys
 import warnings
-from typing import Callable, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
 import ase.io
 import numpy as np
@@ -37,6 +37,8 @@ class AtomsDataset(InMemoryDataset):
         pre_filter: Optional[Callable] = None,
         log: bool = True,
         *,
+        use_atomization_energy: bool = False,
+        atomref: Optional[Dict[str, float]] = None,
         neighborlist_backend: str = "ase",
     ):
         self.data_source = data_source
@@ -44,6 +46,8 @@ class AtomsDataset(InMemoryDataset):
         self.cutoff = cutoff
         self.num_workers = num_workers
         self.neighborlist_backend = neighborlist_backend
+        self.use_atomization_energy = use_atomization_energy
+        self.atomref = atomref
         super().__init__(root, transform, pre_transform, pre_filter, log)
         self.shift_energy = shift_energy
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -67,7 +71,14 @@ class AtomsDataset(InMemoryDataset):
             raise TypeError("data_source must be a string or a sequence of ase.Atoms")
 
         def to_graph(atoms, cutoff):
-            return AtomsGraph.from_ase(atoms, True, cutoff, neighborlist_backend=self.neighborlist_backend)
+            return AtomsGraph.from_ase(
+                atoms,
+                True,
+                cutoff,
+                neighborlist_backend=self.neighborlist_backend,
+                use_atomization_energy=self.use_atomization_energy,
+                atomref=self.atomref,
+            )
 
         if self.num_workers == 1:
             data_list = [to_graph(atoms, self.cutoff) for atoms in tqdm(atoms_list)]

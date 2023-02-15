@@ -1,7 +1,7 @@
 """
 Data structure for constructing dataset for atomistic machine learning.
 """
-from typing import Sequence, Union
+from typing import Dict, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -85,6 +85,8 @@ class AtomsGraph(Data):
         energy: float = None,
         force: Tensor = None,
         *,
+        use_atomization_energy: bool = False,
+        atomref: Optional[Dict[str, float]] = None,
         add_batch: bool = True,
         neighborlist_backend: Union[str, NeighborListBuilder] = "ase",
         **kwargs,
@@ -117,6 +119,11 @@ class AtomsGraph(Data):
         if energy is None:
             try:
                 energy = atoms.get_potential_energy()
+                if use_atomization_energy:
+                    symbols = atoms.get_chemical_symbols()
+                    assert atomref is not None, "atomref must be given when use_atomization_energy is True."
+                    assert set(symbols).issubset(set(atomref.keys())), "atomref must contain all elements in atoms."
+                    energy -= sum([atomref[e] for e in symbols])
                 energy = torch.as_tensor(energy, dtype=_default_dtype)
             except RuntimeError:
                 pass
