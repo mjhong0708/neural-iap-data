@@ -27,7 +27,8 @@ class AtomsDataset(InMemoryDataset):
     def __init__(
         self,
         data_source: Union[str, Sequence[Atoms]],
-        name: str,
+        name: str = "dataset",
+        index: str = ":",
         cutoff: float = 5.0,
         num_workers: int = 4,
         shift_energy: bool = True,  # if true, shifted as energy - energy.max()
@@ -41,8 +42,9 @@ class AtomsDataset(InMemoryDataset):
         atomref: Optional[Dict[str, float]] = None,
         neighborlist_backend: str = "ase",
     ):
-        self.data_source = data_source
         self.name = name
+        self.data_source = data_source
+        self.index = index
         self.cutoff = cutoff
         self.num_workers = num_workers
         self.neighborlist_backend = neighborlist_backend
@@ -63,7 +65,7 @@ class AtomsDataset(InMemoryDataset):
         # Read data into huge `Data` list.
         if isinstance(self.data_source, str):
             print("Reading data from", self.data_source, "...")
-            atoms_list = ase.io.read(self.data_source, index=":")
+            atoms_list = ase.io.read(self.data_source, index=self.index)
         elif isinstance(self.data_source, Sequence) and isinstance(self.data_source[0], Atoms):
             print("Using given list of ase.Atoms objects...")
             atoms_list = self.data_source
